@@ -23,6 +23,8 @@ namespace CyberShield_V3
         private ScanHomePanel scanHomePanel;
         private SettingsPanel settingsPanel;
 
+        private volatile bool _stopRequested = false;
+
         private System.Diagnostics.Stopwatch _uiUpdateStopwatch = new System.Diagnostics.Stopwatch();
 
         // Logic
@@ -97,6 +99,20 @@ namespace CyberShield_V3
         }
 
         // NEW: Background check for API connectivity
+
+        // Add this inside the Form1 class in Form1.cs
+        private void SetNavigationState(bool isEnabled)
+        {
+            // Disable/Enable the main navigation buttons
+            if (homeButton != null) homeButton.Enabled = isEnabled;
+            if (scanButton != null) scanButton.Enabled = isEnabled;
+            if (cleanButton != null) cleanButton.Enabled = isEnabled;
+            if (settingsButton != null) settingsButton.Enabled = isEnabled;
+
+            // Optional: If you want to disable dragging the form during scan
+            // if (guna2GradientPanel1 != null) guna2GradientPanel1.Enabled = isEnabled;
+        }
+
         private async void CheckCloudStatus()
         {
             if (dashboardHome == null) return;
@@ -166,8 +182,14 @@ namespace CyberShield_V3
                 // 3. SCANNER
                 scanPanel = new ScanPanel();
                 scanPanel.Dock = DockStyle.Fill;
+                scanPanel.ScanCancelled += (s, e) =>
+                {
+                    // This is the Kill Switch
+                    _stopRequested = true;
+                    scanCancellationToken?.Cancel();
+                };
+
                 scanPanel.BackClicked += (s, e) => { if (detectedThreats.Count > 0) ShowQuarantinePanel(); else ShowDashboard(); };
-                scanPanel.ScanCancelled += (s, e) => scanCancellationToken?.Cancel();
 
                 // 4. QUARANTINE
                 quarantinePanel = new QuarantinePanel();
@@ -283,6 +305,9 @@ namespace CyberShield_V3
         // --- SCANNING LOGIC ---
         private async void StartScanAsync(bool isDeepScan)
         {
+
+            SetNavigationState(false);
+
             scanCancellationToken = new CancellationTokenSource();
             scanPanel.StartScan();
             detectedThreats.Clear();
@@ -313,10 +338,21 @@ namespace CyberShield_V3
                 MessageBox.Show("Error: " + ex.Message);
                 scanPanel.ScanComplete(true);
             }
+            finally
+            {
+                // 2. RE-ENABLE BUTTONS END
+                // This runs whether the scan finishes successfully, is cancelled, or crashes
+                SetNavigationState(true);
+                // -------------------------
+            }
+
         }
 
         private void PerformScan(CancellationToken token, bool isDeepScan)
         {
+            // RESET Kill Switch
+            _stopRequested = false;
+
             try
             {
                 string[] directories;
@@ -329,30 +365,43 @@ namespace CyberShield_V3
                 {
                     scanPanel?.UpdateStatus("Initializing Quick Scan...");
                     directories = new string[] {
-                        Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
-                        Environment.GetFolderPath(Environment.SpecialFolder.Startup)
-                    };
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+                Environment.GetFolderPath(Environment.SpecialFolder.Startup)
+            };
                 }
 
                 if (scanPanel != null) scanPanel.UpdateStatus("Counting files...");
+
                 int totalFiles = 0;
                 foreach (var dir in directories)
                 {
-                    if (token.IsCancellationRequested) break;
+                    if (_stopRequested) break; // CHECK KILL SWITCH
                     if (isDeepScan || Directory.Exists(dir)) totalFiles += CountFiles(dir, token, isDeepScan);
                 }
                 if (totalFiles == 0) totalFiles = 1;
 
                 if (scanPanel != null) scanPanel.UpdateStatus($"Scanning {totalFiles} files...");
+
                 int scannedFiles = 0;
                 _uiUpdateStopwatch.Restart();
 
                 foreach (var dir in directories)
                 {
-                    if (token.IsCancellationRequested) break;
+                    if (_stopRequested) break; // CHECK KILL SWITCH
                     if (isDeepScan || Directory.Exists(dir)) ScanDirectory(dir, ref scannedFiles, totalFiles, token, isDeepScan);
+                }
+
+                // --- FINAL STOP CHECK ---
+                if (_stopRequested || token.IsCancellationRequested)
+                {
+                    if (scanPanel != null)
+                    {
+                        scanPanel.UpdateStatus("Scan Cancelled");
+                        scanPanel.ScanComplete(true);
+                    }
+                    return;
                 }
 
                 if (_scanHistory != null) _scanHistory.Save();
@@ -365,7 +414,10 @@ namespace CyberShield_V3
                     scanPanel.ScanComplete(false);
                 }
             }
-            catch { if (scanPanel != null) scanPanel.ScanComplete(true); }
+            catch
+            {
+                if (scanPanel != null) scanPanel.ScanComplete(true);
+            }
         }
 
         private int CountFiles(string path, CancellationToken token, bool deep)
@@ -390,35 +442,50 @@ namespace CyberShield_V3
 
         private void ScanDirectory(string path, ref int scanned, int total, CancellationToken token, bool deep)
         {
-            if (token.IsCancellationRequested) return;
+            // 1. Immediate Check
+            if (_stopRequested) return;
 
             try
             {
-                foreach (var file in Directory.GetFiles(path))
+                string[] files = Directory.GetFiles(path);
+                foreach (var file in files)
                 {
-                    if (token.IsCancellationRequested) return;
-                    ScanFile(file, ref scanned, total);
+                    // 2. CRITICAL CHECK inside the loop
+                    if (_stopRequested) return;
+
+                    ScanFile(file, ref scanned, total, token);
                 }
 
-                foreach (var sub in Directory.GetDirectories(path))
+                string[] dirs = Directory.GetDirectories(path);
+                foreach (var sub in dirs)
                 {
-                    if (token.IsCancellationRequested) return;
+                    // 3. CRITICAL CHECK inside the loop
+                    if (_stopRequested) return;
+
                     string name = Path.GetFileName(sub).ToLower();
                     if (!deep && (name == "windows" || name == "program files" || name == "appdata")) continue;
                     if (name.StartsWith("$")) continue;
+
                     ScanDirectory(sub, ref scanned, total, token, deep);
                 }
             }
             catch { }
         }
 
-        private void ScanFile(string file, ref int scanned, int total)
+        private void ScanFile(string file, ref int scanned, int total, CancellationToken token)
         {
+            // 1. Stop immediately
+            if (_stopRequested) return;
+
             scanned++;
             try
             {
+                // UI Updates
                 if (_uiUpdateStopwatch.ElapsedMilliseconds > 100 || scanned == total)
                 {
+                    // If stopped, DO NOT update UI anymore to prevent "flickering" effect
+                    if (_stopRequested) return;
+
                     if (scanPanel != null)
                     {
                         scanPanel.UpdateFilesScanned(scanned);
@@ -430,14 +497,22 @@ namespace CyberShield_V3
 
                 if (_scanHistory != null && !_scanHistory.NeedsScanning(file)) return;
 
+                if (_stopRequested) return;
                 ScanResult result = VirusDatabase.ScanFile(file);
 
                 if (!result.IsThreat && IsExecutable(file))
                 {
                     try
                     {
+                        if (_stopRequested) return;
                         string hash = CalculateSHA256(file);
-                        var cloud = _cloudScanner.QueryByHashAsync(hash).Result;
+
+                        if (_stopRequested) return;
+
+                        // Pass token to Cloud Scanner
+                        var cloudTask = _cloudScanner.QueryByHashAsync(hash, token);
+                        var cloud = cloudTask.GetAwaiter().GetResult();
+
                         if (cloud.Success && cloud.Samples?.Count > 0)
                         {
                             result.IsThreat = true;

@@ -17,7 +17,7 @@ namespace CyberShield_V3
         {
             InitializeComponent();
 
-            // --- CRITICAL FIX: Disable Animation to prevent crashing ---
+            // Prevent crash with circular bar animation
             if (scanCircularBar != null)
             {
                 scanCircularBar.Animated = false;
@@ -28,19 +28,11 @@ namespace CyberShield_V3
         private void SafeInvoke(Action action)
         {
             if (this.Disposing || this.IsDisposed) return;
-
             if (this.IsHandleCreated)
             {
                 if (this.InvokeRequired)
                 {
-                    try
-                    {
-                        this.BeginInvoke(action);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        // Form is closing/disposed, ignore safely
-                    }
+                    try { this.BeginInvoke(action); } catch { }
                 }
                 else
                 {
@@ -57,7 +49,7 @@ namespace CyberShield_V3
 
             SafeInvoke(() =>
             {
-                if (scanCircularBar != null) scanCircularBar.Value = 0;
+                if (scanCircularBar != null) { scanCircularBar.Value = 0; scanCircularBar.Animated = true; }
                 if (progressLabel != null) progressLabel.Text = "0%";
 
                 if (statusLabel != null)
@@ -66,7 +58,14 @@ namespace CyberShield_V3
                     statusLabel.ForeColor = Color.FromArgb(100, 150, 255);
                 }
 
-                if (cancelButton != null) cancelButton.Visible = true;
+                if (cancelButton != null)
+                {
+                    cancelButton.Visible = true;
+                    cancelButton.Enabled = true; // Make sure it's enabled
+                    cancelButton.Text = "STOP";  // Reset text
+                    cancelButton.FillColor = Color.FromArgb(220, 50, 50); // Red color
+                }
+
                 if (backButton != null) backButton.Visible = false;
 
                 UpdateFilesScanned(0);
@@ -77,7 +76,6 @@ namespace CyberShield_V3
         public void UpdateProgress(int percentage)
         {
             percentage = Math.Max(0, Math.Min(percentage, 100));
-
             SafeInvoke(() =>
             {
                 if (scanCircularBar != null) scanCircularBar.Value = percentage;
@@ -87,10 +85,7 @@ namespace CyberShield_V3
 
         public void UpdateStatus(string status)
         {
-            SafeInvoke(() =>
-            {
-                if (statusLabel != null) statusLabel.Text = status;
-            });
+            SafeInvoke(() => { if (statusLabel != null) statusLabel.Text = status; });
         }
 
         public void UpdateCurrentFile(string filePath)
@@ -99,7 +94,6 @@ namespace CyberShield_V3
             {
                 if (filePath.Length > 40)
                     filePath = "..." + filePath.Substring(filePath.Length - 37);
-
                 if (currentFileLabel != null) currentFileLabel.Text = filePath;
             });
         }
@@ -107,17 +101,12 @@ namespace CyberShield_V3
         public void UpdateFilesScanned(int count)
         {
             totalFilesScanned = count;
-
-            SafeInvoke(() =>
-            {
-                if (filesScannedLabel != null) filesScannedLabel.Text = $"{count}";
-            });
+            SafeInvoke(() => { if (filesScannedLabel != null) filesScannedLabel.Text = $"{count}"; });
         }
 
         public void UpdateThreatsFound(int count)
         {
             threatsFound = count;
-
             SafeInvoke(() =>
             {
                 if (threatsFoundLabel != null)
@@ -132,6 +121,8 @@ namespace CyberShield_V3
         {
             SafeInvoke(() =>
             {
+                if (scanCircularBar != null) scanCircularBar.Animated = false;
+
                 if (statusLabel != null)
                 {
                     if (wasCancelled)
@@ -152,7 +143,26 @@ namespace CyberShield_V3
         }
 
         // ---------------- Button Events ----------------
-        private void CancelButton_Click(object sender, EventArgs e) => ScanCancelled?.Invoke(this, EventArgs.Empty);
+        // This is the method linked in your Designer.cs
+        private void CancelButton_Click(object sender, EventArgs e)
+        {
+            // 1. Give Instant Visual Feedback
+            if (cancelButton != null)
+            {
+                cancelButton.Text = "Stopping...";
+                cancelButton.Enabled = false; // Prevent double clicks
+                cancelButton.FillColor = Color.Gray;
+            }
+
+            if (statusLabel != null)
+            {
+                statusLabel.Text = "Stopping scan process...";
+            }
+
+            // 2. Trigger the Event to notify Form1
+            ScanCancelled?.Invoke(this, EventArgs.Empty);
+        }
+
         private void BackButton_Click(object sender, EventArgs e) => BackClicked?.Invoke(this, EventArgs.Empty);
     }
 }

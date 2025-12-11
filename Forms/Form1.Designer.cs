@@ -112,8 +112,8 @@
             guna2Transition1.SetDecoration(settingsButton, Guna.UI2.AnimatorNS.DecorationType.None);
             settingsButton.DisabledState.BorderColor = Color.DarkGray;
             settingsButton.DisabledState.CustomBorderColor = Color.DarkGray;
-            settingsButton.DisabledState.FillColor = Color.FromArgb(169, 169, 169);
-            settingsButton.DisabledState.ForeColor = Color.FromArgb(141, 141, 141);
+            settingsButton.DisabledState.FillColor = Color.FromArgb(34, 67, 92);
+            settingsButton.DisabledState.ForeColor = Color.White;
             settingsButton.FillColor = Color.FromArgb(34, 67, 92);
             settingsButton.FocusedColor = Color.FromArgb(30, 41, 59);
             settingsButton.Font = new Font("Segoe UI", 9F);
@@ -140,8 +140,8 @@
             guna2Transition1.SetDecoration(cleanButton, Guna.UI2.AnimatorNS.DecorationType.None);
             cleanButton.DisabledState.BorderColor = Color.DarkGray;
             cleanButton.DisabledState.CustomBorderColor = Color.DarkGray;
-            cleanButton.DisabledState.FillColor = Color.FromArgb(169, 169, 169);
-            cleanButton.DisabledState.ForeColor = Color.FromArgb(141, 141, 141);
+            cleanButton.DisabledState.FillColor = Color.FromArgb(34, 67, 92);
+            cleanButton.DisabledState.ForeColor = Color.White;
             cleanButton.FillColor = Color.FromArgb(34, 67, 92);
             cleanButton.FocusedColor = Color.FromArgb(30, 41, 59);
             cleanButton.Font = new Font("Segoe UI", 9F);
@@ -169,8 +169,8 @@
             guna2Transition1.SetDecoration(homeButton, Guna.UI2.AnimatorNS.DecorationType.None);
             homeButton.DisabledState.BorderColor = Color.DarkGray;
             homeButton.DisabledState.CustomBorderColor = Color.DarkGray;
-            homeButton.DisabledState.FillColor = Color.FromArgb(169, 169, 169);
-            homeButton.DisabledState.ForeColor = Color.FromArgb(141, 141, 141);
+            homeButton.DisabledState.FillColor = Color.FromArgb(34, 67, 92);
+            homeButton.DisabledState.ForeColor = Color.White;
             homeButton.FillColor = Color.FromArgb(34, 67, 92);
             homeButton.FocusedColor = Color.FromArgb(30, 41, 59);
             homeButton.Font = new Font("Segoe UI", 9F);
@@ -198,8 +198,8 @@
             guna2Transition1.SetDecoration(scanButton, Guna.UI2.AnimatorNS.DecorationType.None);
             scanButton.DisabledState.BorderColor = Color.DarkGray;
             scanButton.DisabledState.CustomBorderColor = Color.DarkGray;
-            scanButton.DisabledState.FillColor = Color.FromArgb(169, 169, 169);
-            scanButton.DisabledState.ForeColor = Color.FromArgb(141, 141, 141);
+            scanButton.DisabledState.FillColor = Color.FromArgb(34, 67, 92);
+            scanButton.DisabledState.ForeColor = Color.White;
             scanButton.FillColor = Color.FromArgb(34, 67, 92);
             scanButton.FocusedColor = Color.FromArgb(30, 41, 59);
             scanButton.Font = new Font("Segoe UI", 9F);
