@@ -85,7 +85,7 @@ namespace CyberShield_V3
             // VERSION
             versionLabel = new Label
             {
-                Text = "Version 3.0",
+                Text = "Version 1.0",
                 Font = new Font("Segoe UI", 10),
                 ForeColor = Color.FromArgb(150, 160, 180),
                 AutoSize = true,
