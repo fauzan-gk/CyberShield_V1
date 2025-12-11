@@ -54,6 +54,37 @@ namespace CyberShield_V3
 
         public void UpdateThreatsDetected(int count) { }
 
+        // Add this method to DashboardHome.cs
+        public void UpdateProtectionStatus(bool isActive)
+        {
+            // Update the main status text
+            if (label3 != null)
+            {
+                label3.Text = isActive ? "System Protected" : "Protection Disabled";
+            }
+
+            // Update the sub-label
+            if (label4 != null)
+            {
+                label4.Text = isActive ? "Real-time shield active." : "Real-time shield is OFF.";
+            }
+
+            // Visual Feedback: Change the banner color
+            if (guna2Panel1 != null)
+            {
+                // Green if active, Red if disabled
+                if (isActive)
+                {
+                    guna2Panel1.FillColor = Color.FromArgb(40, 16, 185, 129); // Transparent Green
+                    guna2Panel1.BorderColor = Color.FromArgb(16, 185, 129);      // Solid Green
+                }
+                else
+                {
+                    guna2Panel1.FillColor = Color.FromArgb(40, 220, 50, 50);   // Transparent Red
+                    guna2Panel1.BorderColor = Color.FromArgb(220, 50, 50);       // Solid Red
+                }
+            }
+        }
         public void UpdateThreatDbCount(int count)
         {
             if (lblThreatCount != null) lblThreatCount.Text = count.ToString("N0");

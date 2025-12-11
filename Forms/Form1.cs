@@ -27,6 +27,9 @@ namespace CyberShield_V3
 
         private System.Diagnostics.Stopwatch _uiUpdateStopwatch = new System.Diagnostics.Stopwatch();
 
+        private List<FileSystemWatcher> _protectors = new List<FileSystemWatcher>();
+        private NotifyIcon _trayIcon;
+
         // Logic
         private ScanHistory _scanHistory;
         private CancellationTokenSource scanCancellationToken;
@@ -51,6 +54,8 @@ namespace CyberShield_V3
                 VirusDatabase = new VirusDatabaseEnhanced();
                 _cloudScanner = new MalwareBazaarClient(API_KEY);
                 _scanHistory = new ScanHistory();
+
+                this.Resize += Form1_Resize;
 
                 // Load Hashes and Count Them
                 if (preloadedHashes != null)
@@ -91,6 +96,8 @@ namespace CyberShield_V3
 
                 // NEW: Trigger the cloud connection check once the UI is ready
                 CheckCloudStatus();
+
+                InitializeRealTimeProtection();
             }
             catch (Exception ex)
             {
@@ -111,6 +118,143 @@ namespace CyberShield_V3
 
             // Optional: If you want to disable dragging the form during scan
             // if (guna2GradientPanel1 != null) guna2GradientPanel1.Enabled = isEnabled;
+        }
+
+        private void InitializeRealTimeProtection()
+        {
+            // 1. Setup Tray Icon for Notifications
+            _trayIcon = new NotifyIcon();
+            _trayIcon.Icon = this.Icon; // Or use your app icon: this.Icon
+            _trayIcon.Visible = true;
+            _trayIcon.Text = "CyberShield Active";
+
+            _trayIcon.MouseDoubleClick += (s, e) =>
+            {
+                this.Show();
+                this.WindowState = FormWindowState.Normal;
+                _trayIcon.Visible = false; // Uncomment if you want icon to hide when window is open
+            };
+
+            // 2. Define folders to watch
+            string[] folders = new string[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads",
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            };
+
+            // 3. Create a watcher for each folder
+            foreach (var path in folders)
+            {
+                if (Directory.Exists(path))
+                {
+                    FileSystemWatcher watcher = new FileSystemWatcher();
+                    watcher.Path = path;
+
+                    // Watch for changes to FileName, Size, etc.
+                    watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.LastWrite;
+
+                    // Watch for all files
+                    watcher.Filter = "*.*";
+
+                    // Hook up events
+                    watcher.Created += OnFileChanged;
+                    watcher.Changed += OnFileChanged;
+                    watcher.Renamed += OnFileRenamed;
+
+                    // Start watching
+                    watcher.EnableRaisingEvents = true;
+
+                    _protectors.Add(watcher);
+                }
+            }
+
+            // Update Dashboard to show Active
+            if (dashboardHome != null) dashboardHome.UpdateProtectionStatus(true);
+        }
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            // If the user clicked the Minimize button
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.Hide();             // Hide from Taskbar
+                _trayIcon.Visible = true; // Ensure Tray Icon is visible
+            }
+        }
+
+        // Event Handler for File Creation/Change
+        private async void OnFileChanged(object sender, FileSystemEventArgs e)
+        {
+            await Task.Run(() => ScanBackgroundFile(e.FullPath));
+        }
+
+        // Event Handler for Renaming
+        private async void OnFileRenamed(object sender, RenamedEventArgs e)
+        {
+            await Task.Run(() => ScanBackgroundFile(e.FullPath));
+        }
+
+        private void ScanBackgroundFile(string filePath)
+        {
+            try
+            {
+                // 1. Basic checks
+                if (!File.Exists(filePath)) return;
+
+                // Wait a brief moment for the file copy/download to finish locking the file
+                Thread.Sleep(500);
+
+                FileInfo fi = new FileInfo(filePath);
+                // Ignore huge files or system files to save performance
+                if (fi.Length > 50 * 1024 * 1024) return;
+
+                // 2. Local Database Scan
+                ScanResult result = VirusDatabase.ScanFile(filePath);
+
+                // 3. Cloud Scan (Only if local passed and it's an executable)
+                if (!result.IsThreat && IsExecutable(filePath))
+                {
+                    string hash = CalculateSHA256(filePath);
+                    var cloud = _cloudScanner.QueryByHashAsync(hash).Result; // Synchronous wait in background thread
+
+                    if (cloud.Success && cloud.Samples?.Count > 0)
+                    {
+                        result.IsThreat = true;
+                        result.ThreatName = cloud.Samples[0].MalwareName ?? "Cloud Threat";
+                        result.Severity = ThreatSeverity.High;
+                    }
+                }
+
+                // 4. Action: Quarantine & Notify
+                if (result.IsThreat)
+                {
+                    var info = new ThreatInfo
+                    {
+                        FilePath = filePath,
+                        ThreatName = result.ThreatName,
+                        Severity = result.Severity,
+                        DetectedTime = DateTime.Now
+                    };
+
+                    detectedThreats.Add(info);
+                    QuarantineFile(info); // Reusing your existing quarantine method
+
+                    // 5. Notify the user (Since app might be minimized)
+                    _trayIcon.ShowBalloonTip(5000, "Threat Blocked!",
+                        $"CyberShield protected you from: {result.ThreatName}", ToolTipIcon.Warning);
+
+                    // Safely update UI if visible
+                    this.Invoke((MethodInvoker)(() =>
+                    {
+                        if (dashboardHome != null) dashboardHome.UpdateThreatsDetected(detectedThreats.Count);
+                        if (scanPanel != null) scanPanel.UpdateThreatsFound(detectedThreats.Count);
+                    }));
+                }
+            }
+            catch
+            {
+                // Background errors shouldn't crash the app
+            }
         }
 
         private async void CheckCloudStatus()
