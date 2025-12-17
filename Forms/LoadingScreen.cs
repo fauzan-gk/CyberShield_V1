@@ -286,15 +286,16 @@ namespace CyberShield_V3
 
         private void StartLoadingSimulation()
         {
-            // Run this in the background so the spinner keeps spinning
+            // Run this in the background so the spinner keeps spinning smoothly
             Task.Run(async () =>
             {
                 try
                 {
                     // --- PHASE 1: INITIALIZATION ---
+                    // Reduced artificial delay from 500ms to 200ms
                     UpdateStatus("Initializing Security Core...");
-                    UpdateProgress(10);
-                    await Task.Delay(500);
+                    UpdateProgress(15);
+                    await Task.Delay(200);
 
                     // --- PHASE 2: DOWNLOAD DATABASE ---
                     UpdateStatus("Contacting MalwareBazaar Cloud...");
@@ -305,44 +306,54 @@ namespace CyberShield_V3
 
                     try
                     {
+                        // The actual network request takes time, so we don't need extra delays around it
                         hashes = await loader.LoadHashesAsync();
-                        UpdateProgress(80);
+
+                        UpdateProgress(85);
                         UpdateStatus($"Database Updated: {hashes.Count} Signatures");
-                        await Task.Delay(800);
+
+                        // Short pause (300ms) just so the user can read "Database Updated"
+                        await Task.Delay(300);
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"API Load Failed: {ex.Message}");
                         UpdateStatus("Offline Mode: API Unavailable");
-                        await Task.Delay(1000);
+                        await Task.Delay(500); // Keep this longer so user sees the error
                     }
 
                     // --- PHASE 3: LAUNCH MAIN FORM ---
-                    UpdateStatus("Starting CyberShield V3...");
+                    UpdateStatus("Starting CyberShield...");
                     UpdateProgress(100);
-                    await Task.Delay(400);
 
+                    // Tiny pause to ensure the bar visually hits 100%
+                    await Task.Delay(100);
+
+                    // --- CRITICAL UI SWITCH ---
                     if (!IsDisposed && IsHandleCreated)
                     {
                         this.Invoke(new Action(() =>
                         {
                             try
                             {
-                                // Add this delay to ensure loading screen is visible
-                                System.Threading.Thread.Sleep(200);
+                                // 1. REMOVED the 'Thread.Sleep(200)' which caused the hang/freeze.
 
+                                // 2. Initialize Main Form
+                                // Note: If Form1 constructor is heavy, the UI will still pause here slightly.
                                 Form1 mainForm = new Form1(hashes);
 
-                                // Show first, THEN hide loading screen
+                                // 3. Show Main Form first
                                 mainForm.Show();
-                                mainForm.BringToFront();
 
+                                // 4. Force it to paint immediately to prevent "blank white window" flicker
+                                mainForm.Refresh();
+
+                                // 5. Hide Loading Screen
                                 this.Hide();
                             }
                             catch (Exception ex)
                             {
-                                MessageBox.Show($"Startup Error:\n\n{ex.Message}\n\n{ex.StackTrace}",
-                                    "Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                MessageBox.Show($"Startup Error:\n{ex.Message}", "Critical Error");
                                 Application.Exit();
                             }
                         }));
@@ -350,10 +361,9 @@ namespace CyberShield_V3
                 }
                 catch (Exception ex)
                 {
-                    // Catch background thread errors
                     this.Invoke(new Action(() =>
                     {
-                        MessageBox.Show($"Loading Error:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        MessageBox.Show($"Loading Error:\n{ex.Message}", "Error");
                     }));
                 }
             });

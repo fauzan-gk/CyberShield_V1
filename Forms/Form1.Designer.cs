@@ -123,11 +123,11 @@
             securityButton.DisabledState.ForeColor = Color.White;
             securityButton.FillColor = Color.FromArgb(34, 67, 92);
             securityButton.FocusedColor = Color.FromArgb(30, 41, 59);
-            securityButton.Font = new Font("Segoe UI", 9F);
+            securityButton.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             securityButton.ForeColor = Color.White;
             securityButton.HoverState.FillColor = Color.FromArgb(30, 41, 59);
             securityButton.Image = (Image)resources.GetObject("securityButton.Image");
-            securityButton.Location = new Point(7, 199);
+            securityButton.Location = new Point(7, 137);
             securityButton.Name = "securityButton";
             securityButton.PressedColor = Color.FromArgb(30, 41, 59);
             securityButton.PressedDepth = 20;
@@ -152,7 +152,7 @@
             settingsButton.DisabledState.ForeColor = Color.White;
             settingsButton.FillColor = Color.FromArgb(34, 67, 92);
             settingsButton.FocusedColor = Color.FromArgb(30, 41, 59);
-            settingsButton.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            settingsButton.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             settingsButton.ForeColor = Color.White;
             settingsButton.HoverState.FillColor = Color.FromArgb(30, 41, 59);
             settingsButton.Image = (Image)resources.GetObject("settingsButton.Image");
@@ -180,11 +180,11 @@
             cleanButton.DisabledState.ForeColor = Color.White;
             cleanButton.FillColor = Color.FromArgb(34, 67, 92);
             cleanButton.FocusedColor = Color.FromArgb(30, 41, 59);
-            cleanButton.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            cleanButton.Font = new Font("Segoe UI", 11.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             cleanButton.ForeColor = Color.White;
             cleanButton.HoverState.FillColor = Color.FromArgb(30, 41, 59);
             cleanButton.Image = (Image)resources.GetObject("cleanButton.Image");
-            cleanButton.Location = new Point(7, 137);
+            cleanButton.Location = new Point(7, 199);
             cleanButton.Name = "cleanButton";
             cleanButton.PressedColor = Color.FromArgb(30, 41, 59);
             cleanButton.PressedDepth = 5;
@@ -209,7 +209,7 @@
             homeButton.DisabledState.ForeColor = Color.White;
             homeButton.FillColor = Color.FromArgb(34, 67, 92);
             homeButton.FocusedColor = Color.FromArgb(30, 41, 59);
-            homeButton.Font = new Font("Segoe UI", 9F);
+            homeButton.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             homeButton.ForeColor = Color.White;
             homeButton.HoverState.FillColor = Color.FromArgb(30, 41, 59);
             homeButton.Image = (Image)resources.GetObject("homeButton.Image");
@@ -238,7 +238,7 @@
             scanButton.DisabledState.ForeColor = Color.White;
             scanButton.FillColor = Color.FromArgb(34, 67, 92);
             scanButton.FocusedColor = Color.FromArgb(30, 41, 59);
-            scanButton.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            scanButton.Font = new Font("Segoe UI", 11.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             scanButton.ForeColor = Color.White;
             scanButton.HoverState.FillColor = Color.FromArgb(30, 41, 59);
             scanButton.Image = (Image)resources.GetObject("scanButton.Image");
