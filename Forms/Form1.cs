@@ -875,7 +875,6 @@ namespace CyberShield_V3
 
         private void HandleThreatFound(string filePath, ScanResult result)
         {
-            // 1. Create the Threat Info object
             var info = new ThreatInfo
             {
                 FilePath = filePath,
@@ -884,38 +883,32 @@ namespace CyberShield_V3
                 DetectedTime = DateTime.Now
             };
 
-            // 2. Quarantine / Delete the file (Disk Operation)
-            QuarantineFile(info);
+            // 1. Attempt Quarantine
+            // ONLY proceed if WE were the ones who successfully moved it.
+            bool wasQuarantined = QuarantineFile(info);
 
-            // 3. Update the UI (Must be done on the UI Thread)
-            this.Invoke((MethodInvoker)(() =>
+            if (wasQuarantined)
             {
-                // Add to local list
-                detectedThreats.Add(info);
-
-                // Update the Security Panel (if visible)
-                if (securityPanel != null)
-                    securityPanel.AddThreatRealTime(info);
-
-                // Play Alert Sound
-                try { System.Media.SystemSounds.Hand.Play(); } catch { }
-
-                // Show Tray Notification
-                if (_trayIcon != null)
+                // 2. Update UI (Only runs once now)
+                this.Invoke((MethodInvoker)(() =>
                 {
-                    _trayIcon.Visible = true;
-                    _trayIcon.ShowBalloonTip(3000, "THREAT DETECTED",
-                        $"Removed: {result.ThreatName}", ToolTipIcon.Warning);
-                }
+                    detectedThreats.Add(info);
 
-                // Update Dashboard Counters
-                if (dashboardHome != null)
-                    dashboardHome.UpdateThreatsDetected(detectedThreats.Count);
+                    if (securityPanel != null) securityPanel.AddThreatRealTime(info);
 
-                // Update Scan Panel Counters (Specific to the manual scan page)
-                if (scanPanel != null)
-                    scanPanel.UpdateThreatsFound(detectedThreats.Count);
-            }));
+                    try { System.Media.SystemSounds.Hand.Play(); } catch { }
+
+                    if (_trayIcon != null)
+                    {
+                        _trayIcon.Visible = true;
+                        _trayIcon.ShowBalloonTip(3000, "THREAT DETECTED",
+                            $"Removed: {result.ThreatName}", ToolTipIcon.Warning);
+                    }
+
+                    if (dashboardHome != null) dashboardHome.UpdateThreatsDetected(detectedThreats.Count);
+                    if (scanPanel != null) scanPanel.UpdateThreatsFound(detectedThreats.Count);
+                }));
+            }
         }
 
         private bool IsScannableExtension(string filePath)
@@ -1036,45 +1029,42 @@ namespace CyberShield_V3
             try { using (var s = SHA256.Create()) using (var f = File.OpenRead(file)) return BitConverter.ToString(s.ComputeHash(f)).Replace("-", "").ToLower(); } catch { return ""; }
         }
 
-        private void QuarantineFile(ThreatInfo threat)
+        // CHANGE 'void' to 'bool'
+        private bool QuarantineFile(ThreatInfo threat)
         {
-            // Retry up to 3 times (helps if file is still being downloaded/written)
+            // Retry up to 3 times
             for (int i = 0; i < 3; i++)
             {
                 try
                 {
-                    if (!File.Exists(threat.FilePath)) return; // Already gone
+                    // CRITICAL CHECK: If file is already gone (moved by another thread), return FALSE
+                    if (!File.Exists(threat.FilePath)) return false;
 
                     string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CyberShield", "Quarantine");
                     Directory.CreateDirectory(folder);
 
-                    // FIX 1: Generate a UNIQUE name (OriginalName_Timestamp.quarantine)
-                    // This prevents "File already exists" errors if you scan the same threat twice.
                     string uniqueName = $"{Path.GetFileNameWithoutExtension(threat.FilePath)}_{DateTime.Now.Ticks}{Path.GetExtension(threat.FilePath)}.quarantine";
                     string dest = Path.Combine(folder, uniqueName);
 
-                    // FIX 2: Move the file
                     File.Move(threat.FilePath, dest);
 
-                    // Success
+                    // Success! Update info and return TRUE
                     threat.QuarantinedPath = dest;
                     threat.IsQuarantined = true;
                     SaveThreatsToDisk();
-                    return; // Done
+                    return true;
                 }
                 catch (IOException)
                 {
-                    // File is locked (e.g. browser still downloading). Wait 1s and retry.
-                    Thread.Sleep(1000);
+                    Thread.Sleep(200); // Small wait for file locks
                 }
                 catch (Exception ex)
                 {
-                    // Other errors (permission, etc)
-                    threat.QuarantineError = ex.Message;
                     System.Diagnostics.Debug.WriteLine($"Quarantine Failed: {ex.Message}");
-                    break;
+                    return false; // Failed to move
                 }
             }
+            return false; // Timed out or failed
         }
 
         private bool IsExecutable(string f) { string x = Path.GetExtension(f).ToLower(); return x == ".exe" || x == ".dll" || x == ".bat"; }
