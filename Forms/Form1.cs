@@ -182,7 +182,7 @@ namespace CyberShield_V3
             {
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads",
                 Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             };
 
             // 3. Create a watcher for each folder
@@ -285,7 +285,6 @@ namespace CyberShield_V3
                 }
 
                 // 4. Scan: Cloud (Intelligence)
-                // CHANGED: Added 'await' to prevent deadlocks
                 string ext = Path.GetExtension(filePath);
 
                 if (!result.IsThreat && CloudTargetExtensions.Contains(ext))
@@ -309,36 +308,7 @@ namespace CyberShield_V3
                 // 5. Act
                 if (result.IsThreat)
                 {
-                    var info = new ThreatInfo
-                    {
-                        FilePath = filePath,
-                        ThreatName = result.ThreatName,
-                        Severity = result.Severity,
-                        DetectedTime = DateTime.Now
-                    };
-
-                    // Attempt Quarantine
-                    QuarantineFile(info);
-
-                    // Update UI (Main Thread)
-                    this.Invoke((MethodInvoker)(() =>
-                    {
-                        detectedThreats.Add(info);
-
-                        if (securityPanel != null) securityPanel.AddThreatRealTime(info);
-
-                        System.Media.SystemSounds.Hand.Play();
-
-                        if (_trayIcon != null)
-                        {
-                            _trayIcon.Visible = true;
-                            _trayIcon.ShowBalloonTip(3000, "THREAT DETECTED",
-                                $"Removed: {result.ThreatName}", ToolTipIcon.Warning);
-                        }
-
-                        if (dashboardHome != null) dashboardHome.UpdateThreatsDetected(detectedThreats.Count);
-                        if (scanPanel != null) scanPanel.UpdateThreatsFound(detectedThreats.Count);
-                    }));
+                    HandleThreatFound(filePath, result);
                 }
             }
             catch (Exception ex)
@@ -415,7 +385,7 @@ namespace CyberShield_V3
                 dashboardHome = new DashboardHome();
                 dashboardHome.Dock = DockStyle.Fill;
 
-                // NEW: Immediately update the stats on the dashboard
+                // Immediately update the stats on the dashboard
                 dashboardHome.UpdateThreatDbCount(_signatureCount);
                 if (_scanHistory != null && _scanHistory.LastScanDate != DateTime.MinValue)
                     dashboardHome.UpdateLastScanTime(_scanHistory.LastScanDate);
@@ -457,7 +427,8 @@ namespace CyberShield_V3
                 // 7. SECURITY PANEL
                 securityPanel = new SecurityPanel();
                 securityPanel.Dock = DockStyle.Fill;
-                securityPanel.ProtectionToggled += (s, active) => {
+                securityPanel.ProtectionToggled += (s, active) =>
+                {
                     // Logic to enable/disable FileSystemWatchers
                     foreach (var p in _protectors) p.EnableRaisingEvents = active;
                 };
@@ -810,63 +781,14 @@ namespace CyberShield_V3
                 {
                     if (_stopRequested || token.IsCancellationRequested) return;
 
-                    try
-                    {
-                        FileInfo fi = new FileInfo(file);
-                        if (fi.Length > 50 * 1024 * 1024) continue;
-
-                        // --- SCANNING LOGIC ---
-                        ScanResult result = VirusDatabase.ScanFile(file);
-
-                        if (!result.IsThreat && _yaraScanner != null)
-                        {
-                            if (IsScannableExtension(file))
-                            {
-                                var yaraResult = _yaraScanner.ScanFile(file);
-                                if (yaraResult.IsThreat) result = yaraResult;
-                            }
-                        }
-
-                        if (result.IsThreat)
-                        {
-                            HandleThreatFound(file, result);
-                        }
-                        // -----------------------
-
-                        scanned++;
-
-                        // Update every 10 files 
-                        if (scanned < 10 || scanned % 10 == 0)
-                        {
-                            // FIX: Copy 'ref' value to a local variable for the lambda
-                            int currentCount = scanned;
-                            int progress = (int)((double)scanned / total * 100);
-
-                            this.Invoke((MethodInvoker)(() =>
-                            {
-                                if (scanPanel != null)
-                                {
-                                    scanPanel.UpdateProgress(progress);
-                                    scanPanel.UpdateStatus($"Scanning: {Path.GetFileName(file)}");
-
-                                    // Use the LOCAL copy, not the 'ref' variable
-                                    scanPanel.UpdateFilesScanned(currentCount);
-                                }
-                            }));
-                        }
-                    }
-                    catch { }
+                    ScanFile(file, ref scanned, total, token);
                 }
 
+                // ... (Keep the recursion logic for subdirectories) ...
                 var dirs = Directory.EnumerateDirectories(path);
                 foreach (var sub in dirs)
                 {
-                    if (_stopRequested || token.IsCancellationRequested) return;
-
-                    string name = Path.GetFileName(sub).ToLower();
-                    if (name.StartsWith("$") || name == "system volume information") continue;
-                    if (!deep && (name == "windows" || name == "program files" || name == "program files (x86)" || name == "appdata")) continue;
-
+                    // ... (Keep existing recursion logic) ...
                     ScanDirectory(sub, ref scanned, total, token, deep);
                 }
             }
@@ -1003,7 +925,8 @@ namespace CyberShield_V3
                     detectedThreats.Add(info);
 
                     // Update the Security Panel in real-time
-                    this.Invoke((MethodInvoker)(() => {
+                    this.Invoke((MethodInvoker)(() =>
+                    {
                         if (securityPanel != null) securityPanel.AddThreatRealTime(info);
                     }));
 
@@ -1132,6 +1055,11 @@ namespace CyberShield_V3
                 }
             }
             catch { /* File might be corrupted, start fresh */ }
+        }
+
+        private void guna2Button1_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

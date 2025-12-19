@@ -9,6 +9,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Panels\DashboardPanel.cs" />
+    <Compile Remove="Panels\DashboardPanel.Designer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="Panels\DashboardPanel.resx" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="dnYara" Version="2.1.0" />
     <PackageReference Include="dnYara.NativePack" Version="2.1.0.3" />
     <PackageReference Include="Guna.UI2.WinForms" Version="2.0.4.7" />
